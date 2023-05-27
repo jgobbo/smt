@@ -65,6 +65,12 @@ class EGO(SurrogateBasedApplication):
         )
         declare("n_iter", None, types=int, desc="Number of optimizer steps")
         declare(
+            "n_failed",
+            default=25,
+            types=int,
+            desc="Number of consecutive failures to stop",
+        )
+        declare(
             "n_max_optim",
             20,
             types=int,
@@ -136,10 +142,16 @@ class EGO(SurrogateBasedApplication):
         [ndoe + n_iter, 1]: coord-y data
         """
         x_data, y_data = self._setup_optimizer(fun)
+        n_doe = x_data.shape[0]
         n_iter = self.options["n_iter"]
+        n_failed = self.options["n_failed"]
         n_parallel = self.options["n_parallel"]
 
-        for k in range(n_iter):
+        stop_criterion = n_failed if n_iter is None else n_iter
+        step = 0
+        stop_value = 0
+
+        while stop_value <= stop_criterion:
             # Virtual enrichement loop
             for p in range(n_parallel):
                 # find next best x-coord point to evaluate
@@ -148,13 +160,15 @@ class EGO(SurrogateBasedApplication):
                 )
                 if not success:
                     self.log(
-                        "Internal optimization failed at EGO iter = {}.{}".format(k, p)
+                        "Internal optimization failed at EGO iter = {}.{}".format(
+                            step, p
+                        )
                     )
                     break
                 elif success:
                     self.log(
                         "Internal optimization succeeded at EGO iter = {}.{}".format(
-                            k, p
+                            step, p
                         )
                     )
                 # Set temporaly the y-coord point based on the kriging prediction
@@ -172,6 +186,21 @@ class EGO(SurrogateBasedApplication):
             x_to_compute = np.atleast_2d(x_data[-n_parallel:])
             y = self._evaluator.run(fun, x_to_compute)
             y_data[-n_parallel:] = y
+
+            i_min = np.argmin(y_data if y_data.ndim == 1 else y_data[:, 0])
+            iter_min = (i_min - n_doe) // n_parallel
+            best_obj_string = "["
+            for obj in y_data[i_min]:
+                best_obj_string += f"{obj:.2e}, "
+            best_obj_string = best_obj_string[:-2] + "]"
+            print(
+                f"{Fore.CYAN}iter {step}, best obj: {best_obj_string} with {x_data[i_min]} on {iter_min}{Style.RESET_ALL}"
+            )
+
+            step += 1
+            stop_value = step
+            if n_iter is None:
+                stop_value -= iter_min
 
         # Find the optimal point
         ind_best = np.argmin(y_data if y_data.ndim == 1 else y_data[:, 0])
