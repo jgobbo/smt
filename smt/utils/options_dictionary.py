@@ -112,7 +112,8 @@ class OptionsDictionary(object):
             The given dictionary. All keys must have been declared.
         """
         for name in dict_:
-            self[name] = dict_[name]
+            if dict_[name] is not None:
+                self[name] = dict_[name]
 
     def declare(self, name, default=None, values=None, types=None, desc=""):
         """
