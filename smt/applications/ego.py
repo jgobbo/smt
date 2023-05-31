@@ -12,6 +12,8 @@ from types import FunctionType
 from scipy.stats import norm
 from scipy.optimize import minimize
 
+from colorama import Fore, Style
+
 from smt.surrogate_models import KPLS, KRG, KPLSK, MGP, GEKPLS
 from smt.applications.application import SurrogateBasedApplication
 from smt.applications.mixed_integer import MixedIntegerContext
